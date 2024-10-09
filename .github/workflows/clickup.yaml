@@ -27,7 +27,7 @@ jobs:
           TASK_ID: ${{ steps.extract_id.outputs.TASK_ID }}
         run: |
           RESPONSE=$(curl -i -X GET \
-            'https://api.clickup.com/api/v2/task/{$TASK_ID}?custom_task_ids=true&team_id=123&include_subtasks=true&include_markdown_description=true&custom_fields=string' \
+            'https://api.clickup.com/api/v2/task/{$TASK_ID}?custom_task_ids=true&include_subtasks=true&include_markdown_description=true&custom_fields=string' \
             -H 'Authorization: $CLICKUP_API_TOKEN')
           
           echo "Raw API Response:" >> $GITHUB_STEP_SUMMARY
