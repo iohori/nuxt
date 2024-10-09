@@ -17,6 +17,7 @@ jobs:
 
       - name: Fetch ClickUp Task Lists
         if: steps.extract_id.outputs.TASK_ID
+        id: fetch_lists
         env:
           CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
           TASK_ID: ${{ steps.extract_id.outputs.TASK_ID }}
@@ -24,28 +25,53 @@ jobs:
           RESPONSE=$(curl -s -H "Authorization: $CLICKUP_API_TOKEN" \
             "https://api.clickup.com/api/v2/task/$TASK_ID")
           
-          LIST_NAMES=$(echo $RESPONSE | jq -r '.list.name')
-          FOLDER_NAME=$(echo $RESPONSE | jq -r '.folder.name // "No folder"')
-          SPACE_NAME=$(echo $RESPONSE | jq -r '.space.name')
+          echo "Raw API Response:" >> $GITHUB_STEP_SUMMARY
+          echo "$RESPONSE" >> $GITHUB_STEP_SUMMARY
           
-          echo "Task belongs to the following lists:"
-          echo "Space: $SPACE_NAME"
-          echo "Folder: $FOLDER_NAME"
-          echo "List: $LIST_NAMES"
+          if echo "$RESPONSE" | jq -e . >/dev/null 2>&1; then
+            LIST_NAME=$(echo $RESPONSE | jq -r '.list.name // "N/A"')
+            FOLDER_NAME=$(echo $RESPONSE | jq -r '.folder.name // "N/A"')
+            SPACE_NAME=$(echo $RESPONSE | jq -r '.space.name // "N/A"')
+            
+            echo "SPACE_NAME=$SPACE_NAME" >> $GITHUB_OUTPUT
+            echo "FOLDER_NAME=$FOLDER_NAME" >> $GITHUB_OUTPUT
+            echo "LIST_NAME=$LIST_NAME" >> $GITHUB_OUTPUT
+            
+            echo "Task belongs to the following:"
+            echo "Space: $SPACE_NAME"
+            echo "Folder: $FOLDER_NAME"
+            echo "List: $LIST_NAME"
+          else
+            echo "Error: Invalid JSON response from ClickUp API"
+            exit 1
+          fi
 
       - name: Comment PR
-        if: steps.extract_id.outputs.TASK_ID
+        if: steps.fetch_lists.outputs.SPACE_NAME
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const spaceNameOutput = process.env.SPACE_NAME;
-            const folderNameOutput = process.env.FOLDER_NAME;
-            const listNamesOutput = process.env.LIST_NAMES;
+            const spaceNameOutput = '${{ steps.fetch_lists.outputs.SPACE_NAME }}';
+            const folderNameOutput = '${{ steps.fetch_lists.outputs.FOLDER_NAME }}';
+            const listNameOutput = '${{ steps.fetch_lists.outputs.LIST_NAME }}';
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `This PR is associated with a ClickUp task in the following lists:\n\nSpace: ${spaceNameOutput}\nFolder: ${folderNameOutput}\nList: ${listNamesOutput}`
+              body: `This PR is associated with a ClickUp task in the following:\n\nSpace: ${spaceNameOutput}\nFolder: ${folderNameOutput}\nList: ${listNameOutput}`
+            })
+
+      - name: Comment PR on Error
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'There was an error fetching the ClickUp task information. Please check the Action logs for more details.'
             })
