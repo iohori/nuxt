@@ -1,0 +1,93 @@
+name: Fetch ClickUp Task Lists
+
+on:
+  pull_request:
+    types: [opened, reopened, edited]
+
+jobs:
+  fetch-clickup-lists:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      repository-projects: write
+    steps:
+      - name: Extract ClickUp Task ID
+        id: extract_id
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          TASK_ID=$(echo "$PR_TITLE" | grep -oP '\[TICKET-\K\d+(?=\])')
+          echo "TASK_ID=$TASK_ID" >> $GITHUB_OUTPUT
+
+      - name: Get Clickup task info
+        uses: Vendic/clickup-get-tasks@master
+        with:
+          clickup_token: ${{ secrets.CLICKUP_API_TOKEN }}
+          clickup_custom_task_ids: ${{ steps.extract_id.outputs.TASK_ID }}
+          clickup_team_id: 9016562335
+          response_fields: |
+            custom_id
+            name
+            url
+
+      # - name: Fetch ClickUp Task Lists
+      #   if: steps.extract_id.outputs.TASK_ID
+      #   id: fetch_lists
+      #   env:
+      #     CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
+      #     TASK_ID: ${{ steps.extract_id.outputs.TASK_ID }}
+      #   run: |
+      #     RESPONSE=$(curl -i -X GET \
+      #       "https://api.clickup.com/api/v2/task/${TASK_ID}?custom_task_ids=true&include_subtasks=true&include_markdown_description=true&custom_fields=string" \
+      #       -H "Authorization: ${CLICKUP_API_TOKEN}") # <-- Changes here
+          
+      #     echo "Raw API Response:" >> $GITHUB_STEP_SUMMARY
+      #     echo "$RESPONSE" >> $GITHUB_STEP_SUMMARY
+          
+      #     if echo "$RESPONSE" | jq -e '.success' >/dev/null 2>&1; then # Check for success key
+      #       LIST_NAME=$(echo "$RESPONSE" | jq -r '.list.id // "N/A"')
+      #       FOLDER_NAME=$(echo "$RESPONSE" | jq -r '.folder.name // "N/A"')
+      #       SPACE_NAME=$(echo "$RESPONSE" | jq -r '.space.name // "N/A"')
+            
+      #       echo "SPACE_NAME=$SPACE_NAME" >> $GITHUB_OUTPUT
+      #       echo "FOLDER_NAME=$FOLDER_NAME" >> $GITHUB_OUTPUT
+      #       echo "LIST_NAME=$LIST_NAME" >> $GITHUB_OUTPUT
+            
+      #       echo "Task belongs to the following:"
+      #       echo "Space: $SPACE_NAME"
+      #       echo "Folder: $FOLDER_NAME"
+      #       echo "List: $LIST_NAME"
+      #     else
+      #       echo "Error: Invalid JSON response or API error from ClickUp API. Response: $RESPONSE" >> $GITHUB_STEP_SUMMARY
+      #       exit 1
+      #     fi
+
+      # - name: Comment PR
+      #   if: steps.fetch_lists.outputs.SPACE_NAME
+      #   uses: actions/github-script@v6
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       const spaceNameOutput = '${{ steps.fetch_lists.outputs.SPACE_NAME }}';
+      #       const folderNameOutput = '${{ steps.fetch_lists.outputs.FOLDER_NAME }}';
+      #       const listNameOutput = '${{ steps.fetch_lists.outputs.LIST_NAME }}';
+            
+      #       github.rest.issues.createComment({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         body: `This PR is associated with a ClickUp task in the following:\n\nSpace: ${spaceNameOutput}\nFolder: ${folderNameOutput}\nList: ${listNameOutput}`
+      #       })
+
+      # - name: Comment PR on Error
+      #   if: failure()
+      #   uses: actions/github-script@v6
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       github.rest.issues.createComment({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         body: 'There was an error fetching the ClickUp task information. Please check the Action logs for more details.'
+      #       })
