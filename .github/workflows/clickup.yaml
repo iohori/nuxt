@@ -12,39 +12,23 @@ jobs:
       pull-requests: write
       repository-projects: write
     steps:
-      - name: Extract ClickUp Task ID
-        id: extract_id
-        run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          TASK_ID=$(echo "$PR_TITLE" | grep -oP '\[TICKET-\K\d+(?=\])')
-          echo "TASK_ID=$TASK_ID" >> $GITHUB_OUTPUT
-
       - name: Get Clickup task info
         id: fetch_task
-        uses: Vendic/clickup-get-tasks@master
+        uses: shrrravan/clickup-workflow-get-task@master
         with:
           clickup_token: ${{ secrets.CLICKUP_API_TOKEN }}
-          clickup_custom_task_ids: 86cwqkw5k # ${{ steps.extract_id.outputs.TASK_ID }}
+          clickup_custom_task_ids: 86cwqkw5k
           clickup_team_id: 9016562335
           response_fields: |
             custom_id
             name
             url
 
-      - name: Use Clickup Task Data
+      - name: Echo Clickup task info
         run: |
-          tasks=$(echo "${{ steps.Get_Clickup_task_info.outputs.clickup_tasks }}" | jq -r '.[]')
-          echo "Tasks: $tasks"
-          # Process the tasks.  The variable tasks will be a JSON array.  
-          # Example: Loop through and print task names.
-          echo "Task Names:"
-          echo "$tasks" | jq -r '.name'
+          echo "ClickUp Tasks: ${{ steps.fetch_task.outputs.clickup_tasks }}"
+          echo "Invalid Tasks: ${{ steps.fetch_task.outputs.invalid_tasks }}"
 
-          #Check for invalid tasks
-          invalid_tasks=$(echo "${{ steps.Get_Clickup_task_info.outputs.invalid_tasks }}" | jq -r '.')
-          if [[ -n "$invalid_tasks" ]]; then
-            echo "Invalid tasks: $invalid_tasks"
-          fi
 
       # - name: Fetch ClickUp Task Lists
       #   if: steps.extract_id.outputs.TASK_ID
