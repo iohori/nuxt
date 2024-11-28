@@ -16,7 +16,7 @@ jobs:
         id: extract_id
         run: |
           PR_TITLE="${{ github.event.pull_request.title }}"
-          TASK_ID=$(echo $PR_TITLE | grep -oP '\[TICKET-\K\d+(?=\])')
+          TASK_ID=$(echo "$PR_TITLE" | grep -oP '\[TICKET-\K\d+(?=\])')
           echo "TASK_ID=$TASK_ID" >> $GITHUB_OUTPUT
 
       - name: Fetch ClickUp Task Lists
@@ -27,16 +27,16 @@ jobs:
           TASK_ID: ${{ steps.extract_id.outputs.TASK_ID }}
         run: |
           RESPONSE=$(curl -i -X GET \
-            'https://api.clickup.com/api/v2/task/{$TASK_ID}?custom_task_ids=true&include_subtasks=true&include_markdown_description=true&custom_fields=string' \
-            -H 'Authorization: $CLICKUP_API_TOKEN')
+            "https://api.clickup.com/api/v2/task/${TASK_ID}?custom_task_ids=true&include_subtasks=true&include_markdown_description=true&custom_fields=string" \
+            -H "Authorization: ${CLICKUP_API_TOKEN}") # <-- Changes here
           
           echo "Raw API Response:" >> $GITHUB_STEP_SUMMARY
           echo "$RESPONSE" >> $GITHUB_STEP_SUMMARY
           
-          if echo "$RESPONSE" | jq -e . >/dev/null 2>&1; then
-            LIST_NAME=$(echo $RESPONSE | jq -r '.list.id // "N/A"')
-            FOLDER_NAME=$(echo $RESPONSE | jq -r '.folder.name // "N/A"')
-            SPACE_NAME=$(echo $RESPONSE | jq -r '.space.name // "N/A"')
+          if echo "$RESPONSE" | jq -e '.success' >/dev/null 2>&1; then # Check for success key
+            LIST_NAME=$(echo "$RESPONSE" | jq -r '.list.id // "N/A"')
+            FOLDER_NAME=$(echo "$RESPONSE" | jq -r '.folder.name // "N/A"')
+            SPACE_NAME=$(echo "$RESPONSE" | jq -r '.space.name // "N/A"')
             
             echo "SPACE_NAME=$SPACE_NAME" >> $GITHUB_OUTPUT
             echo "FOLDER_NAME=$FOLDER_NAME" >> $GITHUB_OUTPUT
@@ -47,7 +47,7 @@ jobs:
             echo "Folder: $FOLDER_NAME"
             echo "List: $LIST_NAME"
           else
-            echo "Error: Invalid JSON response from ClickUp API"
+            echo "Error: Invalid JSON response or API error from ClickUp API. Response: $RESPONSE" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
