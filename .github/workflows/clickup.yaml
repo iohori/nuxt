@@ -20,6 +20,7 @@ jobs:
           echo "TASK_ID=$TASK_ID" >> $GITHUB_OUTPUT
 
       - name: Get Clickup task info
+        id: fetch_task
         uses: Vendic/clickup-get-tasks@master
         with:
           clickup_token: ${{ secrets.CLICKUP_API_TOKEN }}
@@ -29,6 +30,9 @@ jobs:
             custom_id
             name
             url
+
+      - name: Print Task Details
+        run: echo ${{ steps.fetch_tasks.outputs.clickup_tasks }}
 
       # - name: Fetch ClickUp Task Lists
       #   if: steps.extract_id.outputs.TASK_ID
