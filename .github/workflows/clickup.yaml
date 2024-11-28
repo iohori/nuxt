@@ -32,7 +32,7 @@ jobs:
             url
 
       - name: Print Task Details
-        run: echo ${{ steps.fetch_tasks.outputs.clickup_tasks }}
+        run: echo ${{ steps.fetch_tasks.outputs }}
 
       # - name: Fetch ClickUp Task Lists
       #   if: steps.extract_id.outputs.TASK_ID
