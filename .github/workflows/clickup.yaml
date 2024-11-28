@@ -31,11 +31,20 @@ jobs:
             name
             url
 
-      - name: Print Task Details
-        run: echo ${{ steps.fetch_tasks.outputs.clickup_tasks }}
+      - name: Use Clickup Task Data
+        run: |
+          tasks=$(echo "${{ steps.Get_Clickup_task_info.outputs.clickup_tasks }}" | jq -r '.[]')
+          echo "Tasks: $tasks"
+          # Process the tasks.  The variable tasks will be a JSON array.  
+          # Example: Loop through and print task names.
+          echo "Task Names:"
+          echo "$tasks" | jq -r '.name'
 
-      - name: Print Task Details
-        run: echo ${{ steps.fetch_tasks.outputs.invalid_tasks }}
+          #Check for invalid tasks
+          invalid_tasks=$(echo "${{ steps.Get_Clickup_task_info.outputs.invalid_tasks }}" | jq -r '.')
+          if [[ -n "$invalid_tasks" ]]; then
+            echo "Invalid tasks: $invalid_tasks"
+          fi
 
       # - name: Fetch ClickUp Task Lists
       #   if: steps.extract_id.outputs.TASK_ID
